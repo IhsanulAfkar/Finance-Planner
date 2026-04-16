@@ -32,3 +32,20 @@ export function ColumnSkeleton() {
     </div>
   )
 }
+
+export const ChartSkeleton = () => {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-5 w-40" />
+
+      <Skeleton className="h-[250px] w-full rounded-md" />
+    </div>
+  );
+};
+export const EmptyState = ({ message }: { message: string }) => {
+  return (
+    <div className="flex flex-col items-center justify-center h-[250px] text-center text-gray-500">
+      <p className="text-sm">{message}</p>
+    </div>
+  );
+};

@@ -2,25 +2,7 @@
 
 import * as React from 'react';
 import {
-  IconArticle,
-  IconCamera,
-  IconCategory,
-  IconChartBar,
   IconDashboard,
-  IconDatabase,
-  IconFileAi,
-  IconFileDescription,
-  IconFileWord,
-  IconFolder,
-  IconHelp,
-  IconInnerShadowTop,
-  IconListDetails,
-  IconReport,
-  IconSearch,
-  IconSettings,
-  IconUsers,
-  IconArrowsRightLeft,
-  IconPencil,
 } from '@tabler/icons-react';
 
 import { NavMasterData } from '@/components/nav-masterdata';
@@ -37,7 +19,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { APP_NAME } from '@/lib/clientConst';
-import { ArrowRightLeft } from 'lucide-react';
+import { ArrowRightLeft, ChartLine, CircleDollarSignIcon, HandCoins, Settings, TrendingUp } from 'lucide-react';
 import ThemeSwitcher from './ui/custom/theme-switcher';
 
 const data = {
@@ -53,38 +35,29 @@ const data = {
       icon: IconDashboard,
     },
     {
-      title: 'Task',
-      url: '/dashboard/task',
-      icon: IconPencil,
+      title: 'Expenses',
+      url: '/dashboard/expenses',
+      icon: CircleDollarSignIcon,
     },
     {
-      title: 'Socket',
-      url: '/dashboard/socket',
-      icon: IconArrowsRightLeft,
+      title: 'Incomes',
+      url: '/dashboard/income',
+      icon: TrendingUp,
     },
-  ],
-  navSecondary: [
+    {
+      title: 'Reports',
+      url: '/dashboard/reports',
+      icon: ChartLine,
+    },
+    {
+      title: 'Savings Planner',
+      url: '/dashboard/savings-planner',
+      icon: HandCoins,
+    },
     {
       title: 'Settings',
-      url: '#',
-      icon: IconSettings,
-    },
-    {
-      title: 'Get Help',
-      url: '#',
-      icon: IconHelp,
-    },
-    {
-      title: 'Search',
-      url: '#',
-      icon: IconSearch,
-    },
-  ],
-  masterdata: [
-    {
-      name: 'Article Category',
-      url: '/dashboard/master/article-category',
-      icon: IconCategory,
+      url: '/dashboard/setting',
+      icon: Settings,
     },
   ],
 };
@@ -92,21 +65,12 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
-            >
-              <a href="/dashboard">
-                <IconInnerShadowTop className="!size-5" />
-                <span className="text-base font-semibold">{APP_NAME}</span>
-              </a>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
+      <div className='flex-col px-4 pt-2 mb-4'>
+
+        <p className="text-xl font-bold">{APP_NAME}</p>
+        <p className='text-gray-500 text-xs'>Manage your finances</p>
+      </div>
+
       <SidebarContent>
         <NavMain items={data.navMain} />
         {/* <NavMasterData items={data.masterdata} /> */}

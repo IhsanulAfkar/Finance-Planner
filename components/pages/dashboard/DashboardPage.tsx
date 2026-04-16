@@ -1,95 +1,168 @@
-'use client';
-import { ChartAreaInteractive } from '@/components/chart-area-interactive';
-import { DataTable } from '@/components/data-table';
-import { SectionCards } from '@/components/section-cards';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import useDashboard from '@/hooks/datasource/useDashboard';
-import { getSession } from '@/lib/getSession';
-import { useHeaderTitle } from '@/providers/HeaderTitleProvider';
-import { useSession } from '@/providers/SessionProvider';
-import { NextPage } from 'next';
-import { useEffect } from 'react';
-import TaskCard from './taks/TaskCard';
-import TaskFetchId from './taks/TaskFetchId';
-import { CircularChart } from '@/components/ui/custom/circular-chart';
+"use client"
 
-const DashboardPage: NextPage = () => {
-  useHeaderTitle('Dashboard');
-  const { data: session } = useSession()
-  const { data, isLoading } = useDashboard()
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
+import { ArrowUp, ArrowDown, Plus } from "lucide-react"
+import { useState } from "react"
+import CreateIncomeModal from "./income/CreateIncomeModal"
+import { useRouter } from "@bprogress/next/app"
+
+export default function Dashboard() {
   return (
-    <div className="flex flex-col gap-4 lg:px-8 px-4">
-      <p className='font-semibold text-2xl'>Welcome back, {session?.user.name}</p>
-      <div className='flex flex-col-reverse lg:flex-row gap-6 w-full mt-8'>
-        <Card className='w-full max-w-lg'>
-          <CardHeader><CardTitle>Today Tasks</CardTitle></CardHeader>
-          <CardContent>
-            <div className='max-h-[70vh] overflow-y-auto overflow-x-hidden space-y-4' >
-              {data?.unfinished_today_tasks.map(task => <TaskFetchId key={task.id} task_id={task.id}>
-                <TaskCard task={task} />
-              </TaskFetchId>)}
-            </div>
-          </CardContent>
-        </Card>
-        <div className='flex-1 space-y-6'>
-          <Card>
-            <CardContent className="flex flex-col md:flex-row gap-8">
-              <div className="md:basis-1/2 md:pr-4 md:border-r">
-                <p className="font-semibold text-lg text-center">Status</p>
-                <div className="flex justify-center gap-4 flex-wrap">
-                  <CircularChart
-                    color="#05a301"
-                    label="Completed"
-                    value={data?.status.find(p => p.status === "Completed")?.percentage ?? 0}
-                  />
-                  <CircularChart
-                    color="#0224ff"
-                    label="Ongoing"
-                    value={data?.status.find(p => p.status === "Ongoing")?.percentage ?? 0}
-                  />
-                  <CircularChart
-                    color="#f21e1e"
-                    label="Pending"
-                    value={data?.status.find(p => p.status === "Pending")?.percentage ?? 0}
-                  />
-                </div>
-              </div>
+    <div className="w-full mx-auto space-y-6">
+      {/* Top Stats */}
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Financial Dashboard</h1>
+        <p className="text-gray-600 mt-1">Welcome back! Here's your financial overview.</p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Total Income" value="$5,000" trend="up" percent="12%" />
+        <StatCard title="Total Expense" value="$3,200" trend="down" percent="8%" />
+        <StatCard title="Net Cashflow" value="$1,800" trend="up" percent="5%" />
+        <StatCard title="Savings Rate" value="36%" trend="up" percent="3%" />
+      </div>
 
-              <div className="md:basis-1/2 md:pl-4">
-                <p className="font-semibold text-lg text-center">Priority</p>
-                <div className="flex justify-center gap-4 flex-wrap">
-                  <CircularChart
-                    color="#008235"
-                    label="Low"
-                    value={data?.priority.find(p => p.priority === "Low")?.percentage ?? 0}
-                  />
-                  <CircularChart
-                    color="#a65f00"
-                    label="Medium"
-                    value={data?.priority.find(p => p.priority === "Medium")?.percentage ?? 0}
-                  />
-                  <CircularChart
-                    color="#ca3500"
-                    label="High"
-                    value={data?.priority.find(p => p.priority === "High")?.percentage ?? 0}
-                  />
-                  <CircularChart
-                    color="#c10007"
-                    label="Urgent"
-                    value={data?.priority.find(p => p.priority === "Urgent")?.percentage ?? 0}
-                  />
+      {/* Middle Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <InsightsCard />
+        <GoalsCard />
+      </div>
 
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          {/* <Card>
-            <CardContent></CardContent>
-          </Card> */}
-        </div>
+      {/* Actions + Trends */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <QuickActions />
+        <MiniTrends />
+      </div>
+
+      {/* Bottom */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <RecentTransactions />
+        <Alerts />
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default DashboardPage;
+function StatCard({ title, value, trend, percent }: any) {
+  return (
+    <Card>
+      <CardContent className="p-4 flex justify-between items-center">
+        <div>
+          <p className="text-sm text-muted-foreground">{title}</p>
+          <h2 className="text-2xl font-bold">{value}</h2>
+        </div>
+        <div className={`flex items-center gap-1 text-sm ${trend === 'up' ? 'text-green-600' : 'text-red-500'}`}>
+          {trend === 'up' ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
+          {percent}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function InsightsCard() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>💡 Insights</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 text-sm">
+        <p>You spent 20% more than last week</p>
+        <p>You are 65% towards your savings goal</p>
+        <p>You can save $500 more this month</p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function GoalsCard() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>🎯 Savings Goals</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <GoalItem name="Buy Laptop" progress={65} />
+        <GoalItem name="Vacation" progress={30} />
+      </CardContent>
+    </Card>
+  )
+}
+
+function GoalItem({ name, progress }: any) {
+  return (
+    <div>
+      <div className="flex justify-between text-sm mb-1">
+        <span>{name}</span>
+        <span>{progress}%</span>
+      </div>
+      <Progress value={progress} />
+    </div>
+  )
+}
+
+function QuickActions() {
+  const router = useRouter()
+  const [openIncome, setOpenIncome] = useState(false)
+  return (<>
+
+    <Card>
+      <CardHeader>
+        <CardTitle>Quick Actions</CardTitle>
+      </CardHeader>
+      <CardContent className="flex gap-2">
+        <Button variant="secondary"><Plus className="mr-2" size={16} /> Add Expense</Button>
+        <Button onClick={() => setOpenIncome(true)} variant="secondary"><Plus className="mr-2" size={16} /> Add Income</Button>
+      </CardContent>
+    </Card>
+    {openIncome && <CreateIncomeModal open={openIncome} setOpen={setOpenIncome} onSuccess={() => {
+      router.push('/dashboard/income')
+      setOpenIncome(false)
+    }} />}
+  </>
+  )
+}
+
+function MiniTrends() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>📉 Trends</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 text-sm">
+        <p className="text-green-600">Income ↑ 8%</p>
+        <p className="text-red-500">Expenses ↑ 12%</p>
+        <p className="text-green-600">Savings Rate ↑ 5%</p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function RecentTransactions() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Recent Transactions</CardTitle>
+      </CardHeader>
+      <CardContent className="text-sm space-y-2">
+        <p>Grocery Store - $120</p>
+        <p>Salary + $5000</p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function Alerts() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>⚠️ Alerts</CardTitle>
+      </CardHeader>
+      <CardContent className="text-sm space-y-2">
+        <p className="text-red-500">You exceeded Food budget</p>
+        <p className="text-yellow-600">Emergency fund is low</p>
+      </CardContent>
+    </Card>
+  )
+}

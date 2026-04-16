@@ -18,3 +18,11 @@ export const SOCKET_TYPE_LABEL: Record<string, string> = {
   comment: 'Comments',
 };
 export const SOCKET_PROCESS_TYPE: string[] = ['link', 'comment'];
+
+export const ACCOUNT_TYPE_LABEL = ['SAVINGS',
+  'INVESTMENT',
+  'EMERGENCY',
+  'CASH',
+  'OTHER']
+
+export const CATEGORIES = ["Salary", "Freelance", "Business", "Investment", "Rental", "Gift", "Other"];

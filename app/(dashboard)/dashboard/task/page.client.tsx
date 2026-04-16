@@ -92,8 +92,6 @@ const PageClient: NextPage = () => {
 
     if (!["Pending", "Ongoing", "Completed"].includes(newStatus as string)) return
 
-    // update locally or call API
-    console.log(taskId, newStatus)
     updateTaskStatus(Number(taskId), String(newStatus), () => { refetch() })
   }
   const handleDragStart = (event: DragStartEvent) => {

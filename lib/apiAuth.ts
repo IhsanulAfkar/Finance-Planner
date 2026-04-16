@@ -34,11 +34,12 @@ export async function authGuard(req: NextRequest) {
     authorized: false,
   };
 }
+
 export function withAuth<TParams = {}>(
   handler: (
     req: NextRequest,
     auth: TAuthUser,
-    context: { params: Promise<TParams> }
+    context: { params: TParams }
   ) => Promise<NextResponse | void> | NextResponse
 ) {
   return async (req: NextRequest, context: { params: Promise<TParams> }) => {
@@ -47,7 +48,12 @@ export function withAuth<TParams = {}>(
     if (!auth.authorized) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
+    // ✅ auto resolve params (if it's a Promise)
+    const resolvedParams = await context.params
 
-    return handler(req, auth as TAuthUser, context);
+    return handler(req, auth as TAuthUser, {
+      ...context,
+      params: resolvedParams,
+    })
   };
 }

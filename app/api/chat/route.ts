@@ -2,7 +2,6 @@ import { tool, streamText, generateText, stepCountIs, convertToModelMessages } f
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma'; // Your Prisma client path
 
-import { Priority, Status } from '@/generated/prisma/enums';
 import { createOllama } from 'ollama-ai-provider-v2';
 import { NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/serverSession';
@@ -20,27 +19,58 @@ export const GET = withAuth(async (req: Request, auth: TAuthUser) => {
         user_id: auth.user.id
       },
       include: {
-        chatExecutionHistories: true
+        chatExecutionHistories: {
+          include: {
+            chatExecutionHistoryItems: true
+          }
+        }
       },
       orderBy: {
         created_at: 'desc'
       },
       take: 20
     })
-    const taskIds = new Set<number>(
-      histories.flatMap(h =>
-        h.chatExecutionHistories.flatMap(exec => exec.task_lists)
-      )
-    );
-    const affectedTasks = await prisma.task.findMany({
-      where: {
-        user_id: auth.user.id,
-        id: {
-          in: [...taskIds]
-        }
-      }
-    })
-    const taskMap = new Map(affectedTasks.map(t => [t.id, t]));
+    const transactionIds = new Set<number>()
+    const savingsContributionIds = new Set<number>()
+    const accountIds = new Set<number>()
+
+    histories
+      .flatMap(h => h.chatExecutionHistories)
+      .forEach((chatHistory) => {
+        chatHistory.chatExecutionHistoryItems.forEach((i) => {
+          if (i.account_id) accountIds.add(i.account_id)
+          if (i.savings_contribution_id) savingsContributionIds.add(i.savings_contribution_id)
+          if (i.transaction_id) transactionIds.add(i.transaction_id)
+        })
+      })
+
+    const [transactions, savingsContributions, accounts] = await Promise.all([
+      prisma.transaction.findMany({
+        where: {
+          id: { in: [...transactionIds] },
+          user_id: auth.user.id
+        },
+      }),
+      prisma.savingsContribution.findMany({
+        where: {
+          id: { in: [...savingsContributionIds] },
+          transaction: {
+            user_id: auth.user.id
+          }
+        },
+      }),
+      prisma.account.findMany({
+        where: {
+          id: { in: [...accountIds] },
+          user_id: auth.user.id
+        },
+      }),
+    ])
+    const accountMap = new Map(accounts.map(a => [a.id, a]))
+    const transactionMap = new Map(transactions.map(t => [t.id, t]))
+    const savingsContributionMap = new Map(
+      savingsContributions.map(s => [s.id, s])
+    )
 
     const formatted = histories
       .slice()
@@ -49,14 +79,20 @@ export const GET = withAuth(async (req: Request, auth: TAuthUser) => {
         ...history,
         chatExecutionHistories: history.chatExecutionHistories.map(exec => ({
           ...exec,
-          tasks: exec.task_lists
-            .map(id => taskMap.get(id))
-            .filter(Boolean),
+          chatExecutionHistoryItems: exec.chatExecutionHistoryItems.map(item => ({
+            ...item,
+            account: item.account_id ? accountMap.get(item.account_id) : null,
+            transaction: item.transaction_id ? transactionMap.get(item.transaction_id) : null,
+            savingsContribution: item.savings_contribution_id
+              ? savingsContributionMap.get(item.savings_contribution_id)
+              : null,
+          })),
         })),
-      }));
+      }))
+
     return NextResponse.json({
       message: "Success",
-      data: formatted
+      data: formatted,
     })
   } catch (error) {
     console.error(error)
@@ -66,10 +102,15 @@ export const GET = withAuth(async (req: Request, auth: TAuthUser) => {
 export async function POST(req: Request) {
   try {
     const { text: prompt, messages } = await req.json();
-    const session = await getServerSession()
-    if (!session) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
+    const session = await getServerSession();
+
+    if (!session) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     const userId = Number(session.user.id);
-    // 1. Save the User's Message immediately
+
+    // Save user message
     await prisma.chatHistory.create({
       data: {
         user_id: userId,
@@ -77,217 +118,56 @@ export async function POST(req: Request) {
         content: prompt,
       },
     });
-    let aiChatId: number | null = null
-    const toolsResult: { method: string, task_lists: number[], payload: any } = {
-      method: '',
-      task_lists: [],
-      payload: {}
-    }
+
+    // Fetch financial data
+    const [accounts, transactions, savingsGoals] = await Promise.all([
+      prisma.account.findMany({ where: { user_id: userId } }),
+      prisma.transaction.findMany({
+        where: { user_id: userId },
+        include: { category: true },
+        orderBy: { date: 'desc' },
+        take: 200
+      }),
+      prisma.savingsGoal.findMany({ where: { user_id: userId } }),
+    ]);
+
+    const context = {
+      accounts,
+      transactions,
+      savingsGoals
+    };
+
     const result = await streamText({
       model: ollama(process.env.OLLAMA_MODEL!),
       system: `
-You are a task assistant.
+You are a personal finance assistant.
 
 Rules:
-- Use tools whenever needed.
-- Do NOT explain before calling a tool.
-- Call the tool directly.
-- After receiving tool results, summarize them for the user.
-
-If multiple tasks match, list them clearly.
+- Only answer questions
+- Use the provided data to analyze
+- Give insights and suggestions
 `,
-      messages: await convertToModelMessages(messages.slice(-20)),
-      tools: {
-        createTask: tool({
-          description: "Create task from user description",
-          inputSchema: z.object({
-            title: z.string(),
-            priority: z.enum(["Urgent", "High", "Medium", "Low"])
-              .describe('The priority of task'),
-            content: z.string().describe("The actual content of task"),
-            date: z.string()
-              .describe('ISO 8601 date string (e.g., 2026-03-16T13:10:00Z). Optional.')
-              .optional(),
-          }),
-          execute: async (payload) => {
-            const { content, priority, title, date } = payload
-            const inputDate = date ? new Date(date) : new Date()
-            const task = await prisma.task.create({
-              data: {
-                user_id: userId,
-                date: inputDate,
-                title, content, priority
-              }
-            })
-            toolsResult.method = 'CREATE';
-            toolsResult.task_lists.push(task.id);
-            toolsResult.payload = payload
-            return task
-          }
-        }),
-        searchTasks: tool({
-          description: "Search tasks by keyword",
-          inputSchema: z.object({
-            query: z.string(),
-            priority: z.enum(["Urgent", "High", "Medium", "Low"]).optional(),
-          }),
-          execute: async ({ query, priority }) => {
-            const tasks = await prisma.task.findMany({
-              where: {
-                user_id: userId,
-
-                ...(priority && { priority }),
-
-                ...(query && {
-                  OR: [
-                    { title: { contains: query, mode: "insensitive" } },
-                    { content: { contains: query, mode: "insensitive" } },
-                  ],
-                }),
-              },
-            });
-            toolsResult.method = "SEARCH_TASKS";
-            toolsResult.task_lists = tasks.map(t => t.id)
-            toolsResult.payload = { query, priority };
-
-            return tasks;
-          },
-        }),
-        getTasks: tool({
-          description: "Get user's tasks with optional filters",
-          inputSchema: z.object({
-            date_from: z.string().optional(),
-            date_to: z.string().optional(),
-            priority: z.enum(["Urgent", "High", "Medium", "Low"]).optional(),
-            keyword: z.string().optional(),
-          }),
-          execute: async ({ date_from, date_to, priority, keyword }) => {
-            const tasks = await prisma.task.findMany({
-              where: {
-                user_id: userId,
-                ...(priority && { priority }),
-                ...(date_from || date_to
-                  ? {
-                    date: {
-                      ...(date_from && { gte: new Date(date_from) }),
-                      ...(date_to && { lte: new Date(date_to) }),
-                    },
-                  }
-                  : {}),
-                ...(keyword && {
-                  OR: [
-                    { title: { contains: keyword, mode: "insensitive" } },
-                    { content: { contains: keyword, mode: "insensitive" } },
-                  ],
-                }),
-              },
-              orderBy: { date: "asc" },
-            });
-
-            toolsResult.method = "GET_TASKS";
-            toolsResult.payload = { date_from, date_to, priority, keyword };
-            toolsResult.task_lists = tasks.map(t => t.id)
-            return tasks;
-          },
-        }),
-        requestDeleteTask: tool({
-          description: "Request deletion of a task. Search the task using a query and ask for confirmation before deleting.",
-          inputSchema: z.object({
-            query: z.string().describe("Keyword or phrase to identify the task to delete")
-          }),
-          execute: async ({ query }) => {
-            console.log(query)
-            const tasks = await prisma.task.findMany({
-              where: {
-                user_id: userId,
-                OR: [
-                  { title: { contains: query, mode: "insensitive" } },
-                  { content: { contains: query, mode: "insensitive" } },
-                ]
-              },
-              take: 5
-            })
-
-            if (tasks.length === 0) {
-              return {
-                error: `No tasks found matching "${query}".`
-              }
-            }
-            toolsResult.method = "REQUEST_DELETE_TASK"
-            toolsResult.task_lists = tasks.map(t => t.id)
-            toolsResult.payload = { query }
-            // If multiple tasks match, let the AI ask the user which one
-            if (tasks.length > 1) {
-              return {
-                requiresDisambiguation: true,
-                tasks
-              }
-            }
-
-            const task = tasks[0]
-            return {
-              requiresConfirmation: true,
-              task
-            }
-          }
-        }),
-        deleteTask: tool({
-          description: "Delete a task after user confirmation",
-          inputSchema: z.object({
-            task_id: z.number()
-          }),
-          execute: async ({ task_id }) => {
-            console.log(task_id, 'DELETE')
-            const task = await prisma.task.delete({
-              where: {
-                id: task_id,
-                user_id: userId
-              }
-            })
-
-            toolsResult.method = "DELETE_TASK"
-            toolsResult.task_lists = [task_id]
-            if (!task) {
-              return {
-                error: `No tasks found matching "${task_id}".`
-
-              }
-            }
-            return {
-              success: !!task,
-              deletedTask: task
-            }
-          }
-        })
-      },
-      stopWhen: stepCountIs(7),
-      onFinish: async (props) => {
-        const { text } = props
-        const chat = await prisma.chatHistory.create({
+      messages: [
+        {
+          role: "system",
+          content: `User financial data:\n${JSON.stringify(context)}`
+        },
+        ...(await convertToModelMessages(messages.slice(-10)))
+      ],
+      onFinish: async ({ text }) => {
+        await prisma.chatHistory.create({
           data: {
             user_id: userId,
             role: 'assistant',
             content: text,
           },
         });
-        aiChatId = chat.id
-        if (aiChatId && toolsResult.method) {
-          // save instruction
-          await prisma.chatExecutionHistory.create({
-            data: {
-              chat_id: aiChatId,
-              method: toolsResult.method,
-              task_lists: toolsResult.task_lists,
-              payload: toolsResult.payload,
-            }
-          })
-        }
       }
     });
 
     return result.toUIMessageStreamResponse();
   } catch (error) {
-    console.error(error)
-    return NextResponse.json({ message: "Server Error" }, { status: 500 })
+    console.error(error);
+    return NextResponse.json({ message: "Server Error" }, { status: 500 });
   }
 }

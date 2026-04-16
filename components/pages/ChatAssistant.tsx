@@ -55,15 +55,17 @@ function isToolInvocationPart(
 ): part is ToolInvocationPart {
   return part.type === "tool-invocation";
 }
-export function ChatAssistant({ messages }: { messages: TChat[] }) {
+export function ChatAssistant() {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('')
   const scrollToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   };
-
-
+  const { data: messages } = useChatHistory()
+  const initialMessages = useMemo(() => {
+    return mapChatHistory(messages)
+  }, [messages])
   const {
     messages: chatMessages, sendMessage,
     stop, status
@@ -76,7 +78,7 @@ export function ChatAssistant({ messages }: { messages: TChat[] }) {
     onFinish: () => {
       // refetch();
     },
-    messages: mapChatHistory(messages)
+    messages: initialMessages
   });
   console.log(mapChatHistory(messages))
   useEffect(() => {
@@ -119,8 +121,8 @@ export function ChatAssistant({ messages }: { messages: TChat[] }) {
               <X className="h-4 w-4" />
             </Button>
           </CardHeader>
-          <CardContent className="flex-1 overflow-hidden p-0">
-            <ScrollArea className="h-full px-4">
+          <CardContent className="flex-1 overflow-hidden flex flex-col p-0">
+            <ScrollArea className="flex-1 overflow-y-auto px-4">
               {chatMessages.map((m: any) => {
                 const text = m.parts
                   ?.filter((p: any) => p.type === "text")
@@ -186,13 +188,24 @@ export function ChatAssistant({ messages }: { messages: TChat[] }) {
                                       </pre>
                                     </div>
                                   )}
-                                  <p>Tasks</p>
-                                  {Array.isArray(tool.result?.tasks) && tool.result?.tasks.map((t: TTask) => (<TaskFetchId key={t.id} task_id={t.id}>
-                                    <div className="mb-2 font-medium">
-                                      {t.title}
-                                    </div>
+                                  <p>Results</p>
+                                  {tool.result?.transactions?.length > 0 && (
+                                    <>
+                                      <p>Transactions</p>
+                                      {tool.result.transactions.map((t: any) => (
+                                        <div key={t.id}>{t.description ?? t.amount}</div>
+                                      ))}
+                                    </>
+                                  )}
 
-                                  </TaskFetchId>))}
+                                  {tool.result?.accounts?.length > 0 && (
+                                    <>
+                                      <p>Accounts</p>
+                                      {tool.result.accounts.map((a: any) => (
+                                        <div key={a.id}>{a.type} - {a.balance}</div>
+                                      ))}
+                                    </>
+                                  )}
                                 </div>
                               </PopoverContent>
                             </Popover>
@@ -207,7 +220,7 @@ export function ChatAssistant({ messages }: { messages: TChat[] }) {
               {/* STREAMING INDICATOR */}
               {status === "streaming" && (
                 <div className="flex justify-start mb-4">
-                  <div className="rounded-lg px-3 py-2 text-sm bg-muted border border-border flex items-center gap-2">
+                  <div className=" text-sm text-muted-foreground flex items-center gap-2">
                     <Loader2 className="h-3 w-3 animate-spin" />
                     Thinking...
                   </div>
@@ -237,7 +250,7 @@ export function ChatAssistant({ messages }: { messages: TChat[] }) {
                   placeholder="Ask something..."
                   value={input}
                   onChange={e => setInput(e.target.value)}
-                  className="flex-1"
+                  className="flex-1 "
                   disabled={status === 'streaming'}
                 />
 

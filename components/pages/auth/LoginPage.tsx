@@ -96,7 +96,7 @@ const LoginPage: NextPage = () => {
           )}
         </div>
         <Button type="submit" className="w-full" loading={isLoading}>
-          Register
+          Login
         </Button>
       </div>
       <div className="text-center text-sm">

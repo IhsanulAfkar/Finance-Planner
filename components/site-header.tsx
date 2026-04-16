@@ -21,9 +21,9 @@ import { ArrowLeft, User } from 'lucide-react';
 import { useRouter } from '@bprogress/next/app';
 import { usePathname } from 'next/navigation';
 import { useHeaderTitle } from '@/providers/HeaderTitleProvider';
-import { signOut } from '@/lib/action/clientHelper';
 import useArticleCategory from '@/hooks/datasource/useArticleCategory';
 import TestSocket from './pages/TestSocket';
+import { signOut } from '@/lib/action/clientAction';
 
 export function SiteHeader() {
   const title = useHeaderTitle();

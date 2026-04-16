@@ -1,22 +1,27 @@
 import fs from "fs"
 import path from "path"
 
-export async function saveTaskImage(
+
+export async function saveImage(
   file: File,
-  userId: number
+  userId: number,
+  collection?: string
 ): Promise<string> {
   const bytes = await file.arrayBuffer()
   const buffer = Buffer.from(bytes)
 
   const filename = `${Date.now()}-${file.name}`
 
-  const uploadDir = path.join(
+  const baseDir = path.join(
     process.cwd(),
     "uploads",
     "users",
-    String(userId),
-    "tasks"
+    String(userId)
   )
+
+  const uploadDir = collection
+    ? path.join(baseDir, collection)
+    : baseDir
 
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true })
@@ -26,5 +31,9 @@ export async function saveTaskImage(
 
   fs.writeFileSync(filePath, buffer)
 
-  return `/uploads/users/${userId}/tasks/${filename}`
+  const publicPath = collection
+    ? `/uploads/users/${userId}/${collection}/${filename}`
+    : `/uploads/users/${userId}/${filename}`
+
+  return publicPath
 }

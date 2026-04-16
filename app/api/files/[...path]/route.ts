@@ -20,12 +20,9 @@ export async function GET(
     const relativePath = paramsPath.path.join("/")
 
     // Verify file belongs to user
-    const image = await prisma.taskImage.findFirst({
+    const image = await prisma.receipt.findFirst({
       where: {
-        file_path: relativePath,
-        task: {
-          user_id: userId
-        }
+        image_url: relativePath,
       }
     })
 

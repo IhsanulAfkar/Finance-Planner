@@ -1,28 +1,43 @@
-import { NextPage } from 'next';
+'use client';
+
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
-import { FieldError, RegisterOptions, UseFormRegister } from 'react-hook-form';
+import {
+  FieldError,
+  RegisterOptions,
+  UseFormRegister,
+  FieldValues,
+  Path,
+} from 'react-hook-form';
 import { cn } from '@/lib/utils';
 
-interface Props {
-  register: UseFormRegister<any>;
+interface InputFormProps<T extends FieldValues> {
+  register: UseFormRegister<T>;
   config: {
     title?: string;
-    name: string;
+    name: Path<T>; // 🔥 key fix (typed field name)
     type: React.HTMLInputTypeAttribute;
     placeholder?: string;
     error?: FieldError;
-    registerConfig: RegisterOptions;
+    registerConfig?: RegisterOptions<T, Path<T>>; // 🔥 typed validation
   };
   className?: string;
 }
 
-const InputForm: NextPage<Props> = ({ config, register, className }) => {
+export default function InputForm<T extends FieldValues>({
+  config,
+  register,
+  className,
+}: InputFormProps<T>) {
   return (
-    <div className="">
-      <div className="grid gap-1">
-        {config.title && <Label htmlFor={config.name}>{config.title}</Label>}
+    <div>
+      <div className="grid gap-2">
+        {config.title && (
+          <Label htmlFor={config.name} required={!!config.registerConfig?.required}>{config.title}</Label>
+        )}
+
         <Input
+          id={config.name}
           type={config.type}
           placeholder={config.placeholder}
           className={cn(
@@ -34,11 +49,12 @@ const InputForm: NextPage<Props> = ({ config, register, className }) => {
           {...register(config.name, config.registerConfig)}
         />
       </div>
+
       {config.error && (
-        <p className="text-xs text-red-700">{config.error.message}</p>
+        <p className="text-xs text-red-700">
+          {config.error.message}
+        </p>
       )}
     </div>
   );
-};
-
-export default InputForm;
+}

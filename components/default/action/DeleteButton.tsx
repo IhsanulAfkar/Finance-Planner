@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Spinner } from '@/components/ui/spinner';
 import { Trash2 } from 'lucide-react';
 import { NextPage } from 'next';
 import Image from 'next/image';
@@ -19,12 +20,15 @@ interface Props {
 
 const DeleteButton: NextPage<Props> = ({ handler, children }) => {
   const [showModal, setShowModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false)
   const handlePopup = () => {
     console.log('handled');
     setShowModal(true);
   };
   const handleDelete = async () => {
+    setIsLoading(true)
     await handler();
+    setIsLoading(false)
     setShowModal(false);
   };
   return (
@@ -66,12 +70,14 @@ const DeleteButton: NextPage<Props> = ({ handler, children }) => {
               >
                 Cancel
               </Button>
+
               <Button
                 onClick={handleDelete}
                 variant={'destructive'}
                 className="w-full"
+                disabled={isLoading}
               >
-                Delete
+                {isLoading ? <Spinner /> : 'Delete'}
               </Button>
             </div>
           </DialogContent>

@@ -19,7 +19,7 @@ export function NavMain({
   items: {
     title: string;
     url: string;
-    icon?: Icon;
+    icon?: any;
   }[];
 }) {
   const pathName = usePathname();
@@ -31,7 +31,7 @@ export function NavMain({
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton
-                className="hover:cursor-pointer"
+                className="hover:cursor-pointer h-12 transition-colors data-[active=true]:bg-blue-50 data-[active=true]:text-blue-600 text-gray-700 hover:bg-gray-100"
                 tooltip={item.title}
                 isActive={pathName === item.url}
                 onClick={() => router.push(item.url)}

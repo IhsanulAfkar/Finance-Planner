@@ -9,7 +9,7 @@ const ChatHistory: NextPage<Props> = ({ }) => {
 
   const { data: messages, refetch, isLoading } = useChatHistory()
   if (isLoading) return <></>
-  return <ChatAssistant messages={messages} />
+  return <ChatAssistant />
 }
 
 export default ChatHistory

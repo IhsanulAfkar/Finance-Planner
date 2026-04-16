@@ -1,4 +1,4 @@
-import { signOut } from './action/clientHelper';
+import { signOut } from "./action/clientAction";
 
 export class HttpClient {
   private baseUrl = '/api';
@@ -6,9 +6,9 @@ export class HttpClient {
   private isProcessingQueue = false;
 
   private async enqueueRequest<T>(
-    fn: () => Promise<{ data: T; status: number; message: string }>,
+    fn: () => Promise<{ data: T; status: number; message: string, errors: string[] | undefined }>,
   ) {
-    return new Promise<{ data: T; status: number; message: string }>(
+    return new Promise<{ data: T; status: number; message: string, errors: string[] | undefined }>(
       (resolve, reject) => {
         this.requestQueue.push(async () => {
           try {
@@ -64,6 +64,7 @@ export class HttpClient {
       const responseData = await res.json();
       return {
         data: responseData.data as T,
+        errors: responseData.errors as string[],
         status: res.status,
         message: responseData.message || '',
       };
