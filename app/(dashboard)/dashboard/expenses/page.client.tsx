@@ -106,7 +106,10 @@ export default function PageClient() {
   return (
     <div className="w-full mx-auto space-y-6">
       {createModal &&
-        <CreateModal open={createModal} setOpen={setCreateModal} initialData={initialData} receipt={receipt} onUpdate={refetchExpenses} />
+        <CreateModal open={createModal} setOpen={setCreateModal} initialData={initialData} receipt={receipt} onUpdate={() => {
+          refetchExpenses()
+          setInitialData(null)
+        }} />
       }
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Expenses & Receipts</h1>

@@ -43,7 +43,8 @@ export const POST = withAuth(async (req, auth) => {
             account_id: account.id,
             amount: Math.abs(initialBalance),
             type: initialBalance > 0 ? "INCOME" : "EXPENSE",
-            description: "Initial balance",
+            description: "Initial cash",
+            source: "Initial Cash",
             date: new Date(),
           },
         })

@@ -4,6 +4,7 @@ export const expenseFormSchema = z.object({
   title: z.string().min(1, "Source is required"),
   date: z.string(),
   accountId: z.string(),
+  categoryId: z.string().nullish(),
   merchant: z.string().nullish(),
   amount: z.coerce.number().min(0.01),
   description: z.string().nullish(),

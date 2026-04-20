@@ -99,6 +99,7 @@ export const POST = withAuth(async (req, auth) => {
         id: value.accountId
       }
     })
+    console.log(value)
     if (!account) return NextResponse.json({ message: "Account not found" }, { status: 404 })
     const result = await prisma.$transaction(async (tx) => {
       const transaction = await tx.transaction.create({

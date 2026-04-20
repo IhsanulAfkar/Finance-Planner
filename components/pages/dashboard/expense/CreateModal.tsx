@@ -21,6 +21,7 @@ import { toastValidation } from '@/lib/action/clientHelper'
 import { toast } from 'sonner'
 import { CATEGORIES } from '@/lib/constant'
 import { TextAreaForm } from '@/components/form/TextAreaForm'
+import useTransactionCategory from '@/hooks/datasource/useTransactionCategory'
 
 interface Props {
   open: boolean,
@@ -31,6 +32,7 @@ interface Props {
 }
 
 const CreateModal: NextPage<Props> = ({ open, setOpen, initialData, receipt, onUpdate }) => {
+  const { data: categories } = useTransactionCategory()
   const [loading, setLoading] = useState(false)
   const { data: accounts } = useAccount()
   const {
@@ -100,7 +102,7 @@ const CreateModal: NextPage<Props> = ({ open, setOpen, initialData, receipt, onU
       formData.append("date", formdata.date)
       formData.append('amount', String(formdata.amount))
       formData.append("accountId", String(formdata.accountId))
-      formData.append("categoryId", String(formdata.accountId))
+      formData.append("categoryId", String(formdata.categoryId ?? ''))
       const receptObj = {
         merchant: formdata.merchant,
         total: formdata.amount,
@@ -116,6 +118,7 @@ const CreateModal: NextPage<Props> = ({ open, setOpen, initialData, receipt, onU
       const { data, status, message, errors } = await httpClient.post('/transactions', formData)
       if (status === 200) {
         toast.success('Success create expense')
+        reset({});
         onUpdate?.()
         setOpen(false)
         return
@@ -161,6 +164,18 @@ const CreateModal: NextPage<Props> = ({ open, setOpen, initialData, receipt, onU
               label="Account"
               rules={{
                 required: "field is required"
+              }}
+            />
+            <SelectForm
+              control={control}
+              name="categoryId"
+              options={categories.map((c) => ({
+                id: c.id.toString(),
+                name: `${c.type} (${c.type.toLowerCase()})`
+              }))}
+              label="Category"
+              rules={{
+                // required: "field is required"
               }}
             />
             {/* Title */}
