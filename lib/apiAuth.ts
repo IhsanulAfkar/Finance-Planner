@@ -39,7 +39,7 @@ export function withAuth<TParams = {}>(
   handler: (
     req: NextRequest,
     auth: TAuthUser,
-    context: { params: TParams }
+    context: { params?: TParams }
   ) => Promise<NextResponse | void> | NextResponse
 ) {
   return async (req: NextRequest, context: { params: Promise<TParams> }) => {

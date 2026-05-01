@@ -4,7 +4,7 @@ import { NextResponse } from "next/server"
 
 export const DELETE = withAuth<{ id: string }>(async (req, auth, { params }) => {
   try {
-    const id = Number(params.id)
+    const id = Number(params?.id)
 
     // ✅ Check if category exists & belongs to user
     const existing = await prisma.account.findFirst({

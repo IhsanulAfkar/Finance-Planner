@@ -36,7 +36,7 @@ export const dateFormat = (
 
 export function buildUrl(
   baseUrl: string,
-  params?: Record<string, string | number | undefined>,
+  params?: Record<string, string | number | undefined | null>,
 ): string {
   const query = new URLSearchParams();
 
@@ -84,3 +84,17 @@ export const calculateMonthsRemaining = (targetDate: string) => {
   const months = (target.getFullYear() - today.getFullYear()) * 12 + (target.getMonth() - today.getMonth());
   return Math.max(months, 0);
 };
+export const getMonthRanges = (date?: string) => {
+  const base = date ? new Date(date) : new Date();
+
+  const currentStart = new Date(base.getFullYear(), base.getMonth(), 1);
+  const currentEnd = new Date(base.getFullYear(), base.getMonth() + 1, 1);
+
+  const lastStart = new Date(base.getFullYear(), base.getMonth() - 1, 1);
+  const lastEnd = new Date(base.getFullYear(), base.getMonth(), 1);
+
+  return {
+    current: { start: currentStart, end: currentEnd },
+    last: { start: lastStart, end: lastEnd },
+  };
+}

@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { TransactionType } from '@/generated/prisma/enums';
 import { TAccount } from './useAccount';
 import { useQueryVariable } from '../useQueryVariable';
+import { useDebounce } from '../useDebounce';
 export type TTransaction = {
   id: number,
   user_id: number,
@@ -53,15 +54,35 @@ export type TReceipt = {
   created_at: string
   items: TReceiptItem[]
 }
-const useTransaction = ({ type: initialType }: {
-  type?: TransactionType
+const useTransaction = ({ type: initialType, limit: initialLimit = 10, sortBy: initialSortBy, order: initialOrder, syncUrl = true }: {
+  type?: TransactionType,
+  sortBy?: string,
+  order?: 'asc' | 'desc',
+  limit?: number,
+  syncUrl?: boolean
 } = {}) => {
-  const queryVariable = useQueryVariable(["page", "limit"])
-  const [page, setPage] = useState(Number(queryVariable.pageQuery) || 1)
-  const [limit, setLimit] = useState(Number(queryVariable.limitQuery) || 10)
+  const queryVariable = useQueryVariable(["page", "limit", "order", "sortBy"])
+  const [page, setPage] = useState(
+    syncUrl ? Number(queryVariable.pageQuery) || 1 : 1
+  )
+  const [limit, setLimit] = useState(
+    syncUrl ? Number(queryVariable.limitQuery) || 10 : initialLimit)
   const [type, setType] = useState(initialType)
+  const [order, setOrder] = useState(syncUrl ? queryVariable.order : initialOrder)
+  const [sortBy, setSortBy] = useState(syncUrl ? queryVariable.sortBy : initialSortBy)
+  const [minAmount, setMinAmount] = useState<number | undefined>()
+  const [maxAmount, setMaxAmount] = useState<number | undefined>()
+  const [startDate, setStartDate] = useState<string | undefined>()
+  const [endDate, setEndDate] = useState<string | undefined>()
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 500)
   const filter = {
-    page, limit, type
+    page, limit, type,
+    order, sortBy, search: debouncedSearch,
+    minAmount,
+    maxAmount,
+    startDate,
+    endDate,
   }
   useSyncUrl(filter)
   const {
@@ -88,7 +109,8 @@ const useTransaction = ({ type: initialType }: {
     status: response?.status,
     filter: {
       ...filter,
-      setPage, setLimit, setType
+      search,
+      setPage, setLimit, setType, setOrder, setSortBy, setMaxAmount, setMinAmount, setSearch, setStartDate, setEndDate
     },
     error,
     isLoading,

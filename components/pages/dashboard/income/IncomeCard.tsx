@@ -30,7 +30,7 @@ const IncomeCard: NextPage<Props> = ({ income, onDelete }) => {
     }
   }
   return <div
-    className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+    className="flex items-start justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors bg-card-2"
   >
     <div className="flex-1">
       <div className="flex items-center gap-3 mb-1">
@@ -47,7 +47,7 @@ const IncomeCard: NextPage<Props> = ({ income, onDelete }) => {
     </div>
 
     <div className="flex items-center gap-4">
-      <p className="text-xl font-bold text-green-600">
+      <p className=" font-bold ">
         {formatIDR(income.amount)}
       </p>
       <div className="flex gap-2">

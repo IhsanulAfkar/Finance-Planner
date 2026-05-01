@@ -17,7 +17,7 @@ const createTransactionSchema = Joi.object({
   source: Joi.string().allow("", null),
   date: Joi.date().optional(),
   receipt: Joi.object({
-    merchant: Joi.string().required(),
+    merchant: Joi.string().allow("", null),
     total: Joi.number().positive().required(),
     date: Joi.date().optional(),
 
@@ -45,13 +45,9 @@ export const POST = withAuth(async (req, auth) => {
     let body: any;
     let receiptImage: File | null = null;
 
-    // 1. Determine Input Type
     if (contentType.includes("application/json")) {
-      // Handle JSON Input
       body = await req.json();
-      // Omit image processing for JSON requests
     } else if (contentType.includes("multipart/form-data")) {
-      // Handle Form Data Input
       const formData = await req.formData();
       receiptImage = formData.get("receipt_image") as File | null;
 
@@ -74,7 +70,6 @@ export const POST = withAuth(async (req, auth) => {
       return NextResponse.json({ message: "Unsupported Content-Type" }, { status: 415 });
     }
 
-    // 2. Schema Validation (Joi)
     const { error, value } = createTransactionSchema.validate(body, { abortEarly: false });
     if (error) {
       return NextResponse.json(
@@ -83,7 +78,6 @@ export const POST = withAuth(async (req, auth) => {
       );
     }
 
-    // 3. Optional Image Validation (only for FormData)
     let receiptFileUrl: string | null = null
     if (receiptImage) {
       const imageError = validateImage(receiptImage);
@@ -92,20 +86,52 @@ export const POST = withAuth(async (req, auth) => {
       receiptFileUrl = await saveImage(receiptImage, auth.user.id)
     }
 
-    // check account
     const account = await prisma.account.findFirst({
       where: {
         user_id: auth.user.id,
         id: value.accountId
       }
     })
-    console.log(value)
     if (!account) return NextResponse.json({ message: "Account not found" }, { status: 404 })
     const result = await prisma.$transaction(async (tx) => {
+      // validate account
+      const fromAccount = await tx.account.findFirst({
+        where: { id: value.accountId, user_id: auth.user.id },
+      });
+
+      if (!fromAccount) throw new Error("Source account not found");
+
+      let toAccount = null;
+
+      if (value.type === "TRANSFER") {
+        if (!value.toAccountId) {
+          throw new Error("Destination account is required for transfer");
+        }
+
+        if (value.toAccountId === value.accountId) {
+          throw new Error("Cannot transfer to the same account");
+        }
+
+        toAccount = await tx.account.findFirst({
+          where: { id: value.toAccountId, user_id: auth.user.id },
+        });
+
+        if (!toAccount) throw new Error("Destination account not found");
+      }
+
+      // prevent overdraft
+      if (["EXPENSE", "TRANSFER"].includes(value.type)) {
+        if (fromAccount.balance < value.amount) {
+          throw new Error("Insufficient balance");
+        }
+      }
+
+      // create transaction
       const transaction = await tx.transaction.create({
         data: {
           user_id: auth.user.id,
           account_id: value.accountId,
+          to_account_id: value.toAccountId || null,
           amount: value.amount,
           type: value.type,
           category_id: value.categoryId,
@@ -115,41 +141,69 @@ export const POST = withAuth(async (req, auth) => {
         },
       });
 
-      const balanceAdjustment = value.type === "INCOME" ? value.amount : -value.amount;
-      await tx.account.update({
-        where: { id: value.accountId },
-        data: { balance: { increment: balanceAdjustment } },
-      });
-      let createdReceipt
-      if (value.receipt) {
-        createdReceipt = await tx.receipt.create({
-          data: {
-            user_id: auth.user.id,
-            merchant: value.receipt.merchant,
-            total: value.receipt.total,
-            date: value.receipt.date ? new Date(value.receipt.date) : new Date(),
-            image_url: receiptFileUrl, // URL from JSON or previous upload
-            transaction_id: transaction.id,
-            items: value.receipt.items ? {
-              create: value.receipt.items.map((item: any) => ({
-                name: item.name,
-                price: item.amount,
-              })),
-            } : undefined,
-          },
+      // ===== HANDLE BALANCE =====
+      if (value.type === "INCOME") {
+        await tx.account.update({
+          where: { id: value.accountId },
+          data: { balance: { increment: value.amount } },
         });
       }
 
+      if (value.type === "EXPENSE") {
+        await tx.account.update({
+          where: { id: value.accountId },
+          data: { balance: { decrement: value.amount } },
+        });
+      }
+
+      if (value.type === "TRANSFER") {
+        // subtract from source
+        await tx.account.update({
+          where: { id: value.accountId },
+          data: { balance: { decrement: value.amount } },
+        });
+
+        // add to destination
+        await tx.account.update({
+          where: { id: value.toAccountId },
+          data: { balance: { increment: value.amount } },
+        });
+      }
+
+      // ===== SAVINGS ALLOCATION =====
       if (value.savingsAllocations?.length > 0) {
+        const totalAlloc = value.savingsAllocations.reduce(
+          (sum: number, a: any) => sum + Number(a.amount),
+          0
+        );
+
+        if (totalAlloc > value.amount) {
+          throw new Error("Savings allocation exceeds amount");
+        }
+
+        // validate ownership
+        const goals = await tx.savingsGoal.findMany({
+          where: {
+            id: {
+              in: value.savingsAllocations.map((a: any) => Number(a.goalId)),
+            },
+            user_id: auth.user.id,
+          },
+        });
+
+        if (goals.length !== value.savingsAllocations.length) {
+          throw new Error("Invalid savings goal");
+        }
+
         await tx.savingsContribution.createMany({
           data: value.savingsAllocations.map((alloc: any) => ({
             goal_id: Number(alloc.goalId),
             transaction_id: transaction.id,
             amount: Number(alloc.amount),
             date: new Date(),
-
           })),
         });
+
         await Promise.all(
           value.savingsAllocations.map((alloc: any) =>
             tx.savingsGoal.update({
@@ -164,7 +218,7 @@ export const POST = withAuth(async (req, auth) => {
         );
       }
 
-      return { transaction, receipt: createdReceipt };
+      return { transaction };
     });
 
     return NextResponse.json({ success: true, data: result });
@@ -177,38 +231,72 @@ export const POST = withAuth(async (req, auth) => {
 
 export const GET = withAuth(async (req, auth) => {
   try {
-    const userId = auth.user.id
+    const userId = auth.user.id;
     const { searchParams } = new URL(req.url);
 
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.max(1, parseInt(searchParams.get('limit') || '10'));
+
     const search = searchParams.get('search') || '';
     const type = searchParams.get('type') as TransactionType | null;
 
-    // 1. Get accountId from params
     const accountId = searchParams.get('accountId');
 
-    const sortBy = searchParams.get('sortBy') || 'date';
+    const sortByParam = searchParams.get('sortBy') || 'date';
     const order = (searchParams.get('order') || 'desc') as 'asc' | 'desc';
+
+    // ✅ NEW FILTERS
+    const minAmount = searchParams.get('minAmount');
+    const maxAmount = searchParams.get('maxAmount');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
+
+    // 🔒 whitelist sort fields
+    const allowedSortFields = ['amount', 'date', 'created_at'];
+    const sortBy = allowedSortFields.includes(sortByParam)
+      ? sortByParam
+      : 'date';
 
     const whereClause: Prisma.TransactionWhereInput = {
       user_id: userId,
     };
 
-    // 2. Add to whereClause if present
-    if (accountId) {
-      whereClause.account_id = parseInt(accountId);
+    // account filter
+    if (accountId && !isNaN(Number(accountId))) {
+      whereClause.account_id = Number(accountId);
     }
 
+    // type filter
     if (type) {
       whereClause.type = type;
     }
 
+    // search filter
     if (search) {
       whereClause.OR = [
         { description: { contains: search, mode: 'insensitive' } },
         { source: { contains: search, mode: 'insensitive' } },
       ];
+    }
+
+    // 💰 amount range
+    if (minAmount || maxAmount) {
+      whereClause.amount = {
+        ...(minAmount && !isNaN(Number(minAmount))
+          ? { gte: Number(minAmount) }
+          : {}),
+        ...(maxAmount && !isNaN(Number(maxAmount))
+          ? { lte: Number(maxAmount) }
+          : {}),
+      };
+    }
+
+    // 📅 date range
+    if (startDate || endDate) {
+      whereClause.date = {
+        ...(startDate ? { gte: new Date(startDate) } : {}),
+        ...(endDate ? { lte: new Date(endDate) } : {}),
+      };
     }
 
     const [transactions, totalCount] = await Promise.all([
@@ -219,10 +307,10 @@ export const GET = withAuth(async (req, auth) => {
           account: true,
           receipts: {
             include: {
-              items: true
-            }
+              items: true,
+            },
           },
-          savingsContributions: true
+          savingsContributions: true,
         },
         orderBy: {
           [sortBy]: order,
@@ -236,17 +324,20 @@ export const GET = withAuth(async (req, auth) => {
     return NextResponse.json({
       data: {
         data: transactions,
-        pagination: {
+        meta: {
           total: totalCount,
           page,
           limit,
           totalPages: Math.ceil(totalCount / limit),
         } as TPaginationMeta,
       },
-      message: "Success"
+      message: "Success",
     });
   } catch (error) {
-    console.error(error)
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 })
+    console.error(error);
+    return NextResponse.json(
+      { message: "Internal server error" },
+      { status: 500 }
+    );
   }
-})
+});

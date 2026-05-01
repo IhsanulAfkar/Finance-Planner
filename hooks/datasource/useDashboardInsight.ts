@@ -7,17 +7,12 @@ import { useSort } from '../useSort';
 import { useSyncUrl } from '../useSyncUrl';
 import { buildUrl } from '@/lib/utils';
 import { TTask } from './useTasks';
-export type TDashboardStatisticValue = {
-  current: number,
-  last: number,
+export type TDashboardInsight = {
+  title: string,
+  description: string,
+  type: string
 }
-export type TDashboardStatistic = {
-  totalIncome: TDashboardStatisticValue,
-  totalExpense: TDashboardStatisticValue,
-  netCashflow: TDashboardStatisticValue,
-  savingsRate: TDashboardStatisticValue
-}
-const useDashboard = () => {
+const useDashboardInsight = () => {
 
   const {
     data: response,
@@ -26,15 +21,33 @@ const useDashboard = () => {
     refetch,
     isRefetching
   } = useQuery({
-    queryKey: ['dashboard'],
+    queryKey: ['dashboard-insight'],
     queryFn: async () => {
       return httpClient.get<{
-        data: TDashboardStatistic,
+        data: TDashboardInsight[],
         meta: {
-          month: string
+          income: {
+            current: number,
+            last: number,
+            growth: number
+          },
+          expense: {
+            current: number,
+            last: number,
+            growth: number
+          },
+          savingsRate: {
+            current: number,
+            last: number,
+            diff: number
+          },
+          topCategories: {
+            name: string,
+            amount: number
+          }[]
         }
       }>(
-        buildUrl('/dashboard'),
+        buildUrl('/insight'),
       );
     },
   });
@@ -43,7 +56,7 @@ const useDashboard = () => {
     toast.error('Server Error');
   }
   return {
-    data: response?.data.data,
+    data: response?.data.data ?? [],
     meta: response?.data.meta,
     status: response?.status,
     error,
@@ -52,4 +65,4 @@ const useDashboard = () => {
   };
 };
 
-export default useDashboard;
+export default useDashboardInsight;

@@ -22,7 +22,6 @@ const DeleteButton: NextPage<Props> = ({ handler, children }) => {
   const [showModal, setShowModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false)
   const handlePopup = () => {
-    console.log('handled');
     setShowModal(true);
   };
   const handleDelete = async () => {

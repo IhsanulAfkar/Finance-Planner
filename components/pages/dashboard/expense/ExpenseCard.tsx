@@ -6,6 +6,9 @@ import { NextPage } from 'next'
 import { toast } from 'sonner'
 import { httpClient } from '@/lib/httpClient'
 import DeleteButton from '@/components/default/action/DeleteButton'
+import { useState } from 'react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import ImageWrapper from '@/components/ui/custom/image-wrapper'
 
 interface Props {
   data: TTransaction,
@@ -13,6 +16,7 @@ interface Props {
 }
 
 const ExpenseCard: NextPage<Props> = ({ data, onDelete }) => {
+  const [openDetailModal, setOpenDetailModal] = useState(false)
   const handleDelete = async () => {
     // return
     try {
@@ -28,27 +32,20 @@ const ExpenseCard: NextPage<Props> = ({ data, onDelete }) => {
       toast.error('Something Wrong')
     }
   }
+  const receiptItems = data.receipts.flatMap(i => i.items)
   return <div
-    className="flex flex-col md:flex-row gap-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+    className="flex flex-col md:flex-row gap-4 p-4 border border-gray-200 rounded-lg bg-card-2 hover:bg-card-2-active"
   >
-    {/* {receipt.imageUrl && (
-                <img
-                  src={receipt.imageUrl}
-                  alt="Receipt"
-                  className="w-full md:w-24 h-24 object-cover rounded-lg"
-                />
-              )} */}
-
     <div className="flex-1">
       <div className="flex items-start justify-between mb-2">
-        <div>
-          <p className="font-semibold text-gray-900 flex items-center gap-2 text-xl">
+        <div className='hover:underline hover:cursor-pointer' onClick={() => setOpenDetailModal(true)}>
+          <p className="font-semibold flex items-center gap-2 text-xl">
             {data.source}
           </p>
-          <p className="text-sm text-gray-600">{dateFormat(data.date)}</p>
+          <p className="text-sm text-muted-foreground">{dateFormat(data.date)}</p>
         </div>
         <div className="flex items-center gap-3">
-          <p className="text-lg font-bold text-gray-900">
+          <p className="text-lg font-bold ">
             {formatIDR(data.amount)}
           </p>
           <DeleteButton handler={handleDelete}>
@@ -68,16 +65,53 @@ const ExpenseCard: NextPage<Props> = ({ data, onDelete }) => {
           {data.category.name}
         </span>
       )}
+      <div className='flex gap-4'>
 
-      {data.receipts.length > 0 && (
-        <div className="mt-2">
-          <p className="text-sm text-gray-600">Items:</p>
-          <ul className="text-sm text-gray-700 mt-1">
-            {data.receipts.flatMap((item) => item.items).map(item => <li key={item.id}>{item.name} ({formatIDR(item.price)})</li>)}
-          </ul>
-        </div>
-      )}
+        {receiptItems.length > 0 && (
+          <div className="mt-3 rounded-xl border bg-muted/30 p-3  w-full max-w-lg">
+            <p className="text-sm font-medium text-foreground mb-2">
+              Items
+            </p>
+
+            <ul className="space-y-1.5">
+              {receiptItems.map(item => (
+                <li
+                  key={item.id}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <span className="text-secondary-foreground">
+                    {item.name}
+                  </span>
+                  <span className="font-medium text-foreground">
+                    {formatIDR(item.price)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {data.receipts.filter(rec => rec.image_url).length > 0 && (
+
+          <div>
+            <p className='text-sm font-semibold'>Receipts</p>
+            <div className='flex gap-4 overflow-x-auto h-32 mt-1'>
+              {data.receipts.filter(rec => rec.image_url).map(rec => <ImageWrapper key={rec.id} src={'/api' + rec.image_url} alt={rec.merchant} className='h-full rounded-md' />)}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
+    {openDetailModal && <Dialog open={openDetailModal} onOpenChange={setOpenDetailModal}>
+      <DialogContent className='w-full max-w-2xl!'>
+        <DialogHeader>
+          <DialogTitle>Detail Transaction: {data.description}</DialogTitle>
+        </DialogHeader>
+        <div className='flex gap-4'>
+          {data.receipts.length > 0 && <div>
+            {data.receipts.filter(rec => rec.image_url && rec.image_url.trim() != '').map(rec => <ImageWrapper key={rec.id} alt='receipt' src={'/api' + rec.image_url} />)}
+          </div>}
+        </div>
+      </DialogContent></Dialog>}
   </div>
 }
 

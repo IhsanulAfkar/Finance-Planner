@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 export const DELETE = withAuth<{ id: string }>(async (req, auth, { params }) => {
   try {
-    const id = Number(params.id)
+    const id = Number(params?.id)
 
     if (!id) {
       return NextResponse.json({ message: "Transaction ID is required" }, { status: 400 });

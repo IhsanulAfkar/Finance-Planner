@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface SyncOptions {
-  [key: string]: string | number | undefined;
+  [key: string]: string | number | undefined | null;
 }
 
 export function useSyncUrl(options: SyncOptions) {
@@ -12,7 +12,7 @@ export function useSyncUrl(options: SyncOptions) {
     const params = new URLSearchParams();
 
     Object.entries(options).forEach(([key, value]) => {
-      if (value !== undefined && value !== '') {
+      if (value !== undefined && value !== '' && value != null) {
         params.set(key, String(value));
       }
     });

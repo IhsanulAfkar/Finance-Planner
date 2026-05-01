@@ -32,7 +32,7 @@ interface Props {
 }
 
 const CreateModal: NextPage<Props> = ({ open, setOpen, initialData, receipt, onUpdate }) => {
-  const { data: categories } = useTransactionCategory()
+  const { expense: categories } = useTransactionCategory()
   const [loading, setLoading] = useState(false)
   const { data: accounts } = useAccount()
   const {
@@ -44,6 +44,9 @@ const CreateModal: NextPage<Props> = ({ open, setOpen, initialData, receipt, onU
     control
   } = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseFormSchema) as any,
+    defaultValues: {
+      date: new Date().toISOString()
+    }
     // defaultValues: {
     //   amount: initialData?.amount || 0,
     //   date: initialData?.date,
@@ -60,7 +63,6 @@ const CreateModal: NextPage<Props> = ({ open, setOpen, initialData, receipt, onU
   });
   useEffect(() => {
     if (initialData) {
-      console.log('init', initialData)
       //       {
       //     "title": "Pizza Tarik Krian",
       //     "date": "07-03-2026 15:16",
@@ -125,7 +127,6 @@ const CreateModal: NextPage<Props> = ({ open, setOpen, initialData, receipt, onU
       }
       toast.error(message)
       toastValidation(errors)
-      setOpen(false)
     } catch (err) {
       console.error(err)
       alert("Something went wrong")
@@ -171,7 +172,7 @@ const CreateModal: NextPage<Props> = ({ open, setOpen, initialData, receipt, onU
               name="categoryId"
               options={categories.map((c) => ({
                 id: c.id.toString(),
-                name: `${c.type} (${c.type.toLowerCase()})`
+                name: `${c.name}`
               }))}
               label="Category"
               rules={{
@@ -192,9 +193,6 @@ const CreateModal: NextPage<Props> = ({ open, setOpen, initialData, receipt, onU
                 title: 'Merchant',
                 name: "merchant",
                 type: 'text',
-                registerConfig: {
-                  required: 'required'
-                },
                 error: errors.merchant
               }}
               register={register}
@@ -227,7 +225,7 @@ const CreateModal: NextPage<Props> = ({ open, setOpen, initialData, receipt, onU
           </div>
           <div className="space-y-2 w-full">
             <div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center mb-2">
                 <Label >Items</Label>
                 <Button
                   type="button"

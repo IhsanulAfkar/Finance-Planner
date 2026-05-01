@@ -88,7 +88,6 @@ export async function POST(req: Request) {
     try {
       parsed = JSON.parse(text);
     } catch {
-      console.log(text)
       throw new Error('Invalid JSON from LLM');
     }
 
@@ -119,7 +118,6 @@ ${JSON.stringify(result.error.flatten())}
       try {
         parsed = JSON.parse(retryText);
       } catch {
-        console.log(retryText)
         throw new Error('Retry JSON parse failed');
       }
 

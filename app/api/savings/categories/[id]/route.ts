@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 
 export const PATCH = withAuth<{ id: string }>(async (req, auth, { params }) => {
-  const id = Number(params.id)
+  const id = Number(params?.id)
   const body = await req.json()
 
   const category = await prisma.savingsCategory.updateMany({
@@ -20,7 +20,7 @@ export const PATCH = withAuth<{ id: string }>(async (req, auth, { params }) => {
 })
 
 export const DELETE = withAuth<{ id: string }>(async (req, auth, { params }) => {
-  const id = Number(params.id)
+  const id = Number(params?.id)
 
   await prisma.savingsCategory.deleteMany({
     where: {

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 
 export const PATCH = withAuth<{ id: string }>(async (req, auth, { params }) => {
-  const id = Number(params.id)
+  const id = Number(params?.id)
   const body = await req.json()
 
   const goal = await prisma.savingsGoal.updateMany({
@@ -27,7 +27,7 @@ export const PATCH = withAuth<{ id: string }>(async (req, auth, { params }) => {
 })
 
 export const DELETE = withAuth<{ id: string }>(async (req, auth, { params }) => {
-  const goalId = Number(params.id)
+  const goalId = Number(params?.id)
   await prisma.$transaction(async (tx) => {
     // 0. Get goal info first
     const goal = await tx.savingsGoal.findFirst({

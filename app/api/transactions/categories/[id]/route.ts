@@ -5,7 +5,7 @@ import { NextResponse } from "next/server"
 
 export const PUT = withAuth<{ id: string }>(async (req, auth, { params }) => {
   try {
-    const id = Number(params.id)
+    const id = Number(params?.id)
     const body = await req.json()
 
     const { error, value } = createCategorySchema.validate(body, {
@@ -76,7 +76,7 @@ export const PUT = withAuth<{ id: string }>(async (req, auth, { params }) => {
 })
 export const DELETE = withAuth<{ id: string }>(async (req, auth, { params }) => {
   try {
-    const id = Number(params.id)
+    const id = Number(params?.id)
 
     // ✅ Check if category exists & belongs to user
     const existing = await prisma.transactionCategory.findFirst({

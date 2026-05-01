@@ -32,6 +32,7 @@
     "@dnd-kit/modifiers": "^9.0.0",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@faker-js/faker": "^10.4.0",
     "@hookform/resolvers": "^5.2.2",
     "@next/env": "^15.5.12",
     "@prisma/adapter-pg": "^7.5.0",
@@ -72,6 +73,7 @@
     "errsole": "^2.18.2",
     "errsole-sqlite": "^3.0.3",
     "express": "^5.2.1",
+    "faker": "^6.6.6",
     "filepond": "^4.32.11",
     "filepond-plugin-file-validate-type": "^1.2.9",
     "filepond-plugin-image-exif-orientation": "^1.0.11",
@@ -108,6 +110,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "tinymce": "^8.3.2",
+    "ts-node": "^10.9.2",
     "vaul": "^1.1.2",
     "zod": "^4.3.6"
   },

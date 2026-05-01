@@ -49,3 +49,28 @@ export const EmptyState = ({ message }: { message: string }) => {
     </div>
   );
 };
+
+export function StatCardSkeleton() {
+  return (
+    <Card>
+      <CardContent className="p-4 flex justify-between items-center">
+        <div className="space-y-2">
+          {/* title */}
+          <Skeleton className="h-4 w-24" />
+
+          {/* main value */}
+          <Skeleton className="h-7 w-20" />
+
+          {/* last value */}
+          <Skeleton className="h-3 w-16" />
+        </div>
+
+        {/* trend */}
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-4 rounded-full" />
+          <Skeleton className="h-4 w-12" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

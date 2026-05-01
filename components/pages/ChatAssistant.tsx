@@ -80,7 +80,6 @@ export function ChatAssistant() {
     },
     messages: initialMessages
   });
-  console.log(mapChatHistory(messages))
   useEffect(() => {
     requestAnimationFrame(() => {
       bottomRef.current?.scrollIntoView({

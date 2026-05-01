@@ -50,7 +50,6 @@ async function handler(
         body = await req.text();
       }
     }
-    console.log('url', url);
     const externalRes = await fetch(url, {
       method,
       headers,

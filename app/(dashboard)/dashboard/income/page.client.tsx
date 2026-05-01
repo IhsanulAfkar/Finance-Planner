@@ -79,7 +79,7 @@ export default function PageClient() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
+        <div className="bg-card rounded-xl p-6 border border-gray-200">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-green-50 rounded-lg">
               <DollarSign className="text-green-600" size={20} />
@@ -89,7 +89,7 @@ export default function PageClient() {
           <p className="text-2xl font-bold text-gray-900">{formatIDR(totalIncome)}</p>
         </div>
 
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
+        <div className="bg-card rounded-xl p-6 border border-gray-200">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-blue-50 rounded-lg">
               <Calendar className="text-blue-600" size={20} />
@@ -99,7 +99,7 @@ export default function PageClient() {
           <p className="text-2xl font-bold text-gray-900">{formatIDR(thisMonthIncome)}</p>
         </div>
 
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
+        <div className="bg-card rounded-xl p-6 border border-gray-200">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-purple-50 rounded-lg">
               <TrendingUp className="text-purple-600" size={20} />
@@ -118,7 +118,7 @@ export default function PageClient() {
       {/* Charts */}
       <div className="grid grid-cols-1 gap-6">
         {/* Monthly Income Trend */}
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
+        <div className="bg-card rounded-xl p-6 border border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Income Trend</h2>
 
           {isLoadingChartMonthly ? (
@@ -141,7 +141,7 @@ export default function PageClient() {
           }
         </div>
         {/* Income by Category */}
-        {/* <div className="bg-white rounded-xl p-6 border border-gray-200">
+        {/* <div className="bg-card rounded-xl p-6 border border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Income by Category</h2>
           <div className="space-y-4">
             {incomeByCategory.map((item, idx) => {
@@ -168,7 +168,7 @@ export default function PageClient() {
       </div>
 
       {/* Income List */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200">
+      <div className="bg-card rounded-xl p-6 border border-gray-200">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Income History</h2>
         {isLoadingIncome ? <LoadingIndicator /> :
           <div className="space-y-3">

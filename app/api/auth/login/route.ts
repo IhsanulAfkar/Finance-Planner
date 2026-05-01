@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server';
 import Joi from 'joi';
 import { validate } from '@/lib/validator';
 import { prisma } from '@/lib/prisma';
+import { comparePassword } from '@/lib/bcrypt';
 const loginSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().min(8).required()
@@ -24,6 +25,10 @@ export async function POST(req: Request) {
       }
     })
     if (!user) return NextResponse.json({ message: "User not found" }, { status: 404 })
+    const valid = await comparePassword(password, user.password)
+    if (!valid) {
+      return NextResponse.json({ message: "Invalid Password" }, { status: 400 })
+    }
     const payload: SessionData = {
       user: {
         id: user.id,
