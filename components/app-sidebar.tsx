@@ -3,6 +3,7 @@
 import * as React from 'react';
 import {
   IconDashboard,
+  IconLogout,
 } from '@tabler/icons-react';
 
 import { NavMasterData } from '@/components/nav-masterdata';
@@ -19,6 +20,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { APP_NAME } from '@/lib/clientConst';
+import { signOut } from '@/lib/action/clientAction';
 import { ArrowRightLeft, ChartLine, CircleDollarSignIcon, HandCoins, Settings, TrendingUp } from 'lucide-react';
 import ThemeSwitcher from './ui/custom/theme-switcher';
 
@@ -77,6 +79,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={[]} className="mt-auto" />
         <ThemeSwitcher />
       </SidebarContent>
+
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="Log out"
+              className="hover:cursor-pointer text-destructive hover:bg-destructive/10 hover:text-destructive data-[state=open]:bg-destructive/10"
+              onClick={() => signOut()}
+            >
+              <IconLogout />
+              <span>Log out</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }

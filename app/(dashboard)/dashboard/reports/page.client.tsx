@@ -1,93 +1,116 @@
 'use client'
-import { useState } from "react";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Calendar, TrendingDown, TrendingUp } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  Cell,
+} from "recharts";
+import { AlertTriangle, Calendar, Lightbulb, TrendingDown, TrendingUp } from "lucide-react";
 import useReport, { Period } from "@/hooks/datasource/useReport";
-import { Button } from "@/components/ui/button";
+import useReportInsight, { TReportInsight } from "@/hooks/datasource/useReportInsight";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatIDR } from "@/lib/utils";
+import { getReportRange, resolveBaseDate } from "@/lib/reportRange";
 
-
-// Mock data for different time ranges
-const dailyData = [
-  { time: "12 AM", expenses: 0, income: 0 },
-  { time: "4 AM", expenses: 0, income: 0 },
-  { time: "8 AM", expenses: 45, income: 0 },
-  { time: "12 PM", expenses: 125, income: 0 },
-  { time: "4 PM", expenses: 89, income: 0 },
-  { time: "8 PM", expenses: 67, income: 0 },
-];
-
-const weeklyData = [
-  { day: "Mon", expenses: 245, income: 0 },
-  { day: "Tue", expenses: 189, income: 0 },
-  { day: "Wed", expenses: 312, income: 0 },
-  { day: "Thu", expenses: 276, income: 5000 },
-  { day: "Fri", expenses: 425, income: 0 },
-  { day: "Sat", expenses: 198, income: 0 },
-  { day: "Sun", expenses: 156, income: 0 },
-];
-
-const monthlyData = [
-  { week: "Week 1", expenses: 1245, income: 0 },
-  { week: "Week 2", expenses: 1567, income: 5000 },
-  { week: "Week 3", expenses: 1389, income: 0 },
-  { week: "Week 4", expenses: 1678, income: 0 },
-];
-
-const yearlyData = [
-  { month: "Jan", expenses: 3450, income: 5000 },
-  { month: "Feb", expenses: 3200, income: 5000 },
-  { month: "Mar", expenses: 3800, income: 5000 },
-  { month: "Apr", expenses: 4100, income: 5000 },
-  { month: "May", expenses: 3900, income: 5500 },
-  { month: "Jun", expenses: 4200, income: 5500 },
-  { month: "Jul", expenses: 3700, income: 5500 },
-  { month: "Aug", expenses: 4400, income: 5500 },
-  { month: "Sep", expenses: 3950, income: 5500 },
-  { month: "Oct", expenses: 4150, income: 6000 },
-  { month: "Nov", expenses: 4300, income: 6000 },
-  { month: "Dec", expenses: 4600, income: 6000 },
-];
-
-const categoryBreakdown = {
-  day: [
-    { category: "Food & Dining", amount: 125, percentage: 38.5 },
-    { category: "Transportation", amount: 55, percentage: 16.9 },
-    { category: "Shopping", amount: 89, percentage: 27.4 },
-    { category: "Bills", amount: 56, percentage: 17.2 },
-  ],
-  week: [
-    { category: "Food & Dining", amount: 850, percentage: 47.2 },
-    { category: "Transportation", amount: 220, percentage: 12.2 },
-    { category: "Shopping", amount: 420, percentage: 23.3 },
-    { category: "Entertainment", amount: 180, percentage: 10.0 },
-    { category: "Bills", amount: 131, percentage: 7.3 },
-  ],
-  month: [
-    { category: "Food & Dining", amount: 1850, percentage: 31.2 },
-    { category: "Transportation", amount: 620, percentage: 10.4 },
-    { category: "Shopping", amount: 1280, percentage: 21.6 },
-    { category: "Entertainment", amount: 580, percentage: 9.8 },
-    { category: "Bills", amount: 1550, percentage: 26.1 },
-  ],
-  year: [
-    { category: "Food & Dining", amount: 15400, percentage: 31.7 },
-    { category: "Transportation", amount: 6200, percentage: 12.8 },
-    { category: "Shopping", amount: 10800, percentage: 22.2 },
-    { category: "Entertainment", amount: 4800, percentage: 9.9 },
-    { category: "Bills", amount: 11200, percentage: 23.1 },
-  ],
+const periodTitles: Record<Period, string> = {
+  day: "Daily Activity",
+  week: "Weekly Activity",
+  month: "Monthly Activity",
+  year: "Yearly Activity",
 };
 
-export default function PageClient() {
-  const { data, isLoading, refetch, filter } = useReport()
-  const periods: Period[] = ["day", "week", "month", "year"]
+const dateFormatter = new Intl.DateTimeFormat("en-US", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
 
-  const totalExpenses = data?.totalExpense ?? 0
-  const totalIncome = data?.totalIncome ?? 0
-  const netSavings = totalIncome - totalExpenses;
-  const savingsRate = data?.overallSavingsRate ?? 0
+const CHART_COLORS = [
+  "#3b82f6",
+  "#8b5cf6",
+  "#f59e0b",
+  "#10b981",
+  "#ef4444",
+  "#06b6d4",
+];
+
+const insightStyles: Record<
+  string,
+  { icon: typeof TrendingUp; color: string }
+> = {
+  positive: { icon: TrendingUp, color: "bg-green-50 text-green-600" },
+  warning: { icon: AlertTriangle, color: "bg-red-50 text-red-500" },
+  neutral: { icon: Lightbulb, color: "bg-yellow-50 text-yellow-600" },
+};
+
+const compactNumber = (value: number) => {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}m`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`;
+  return String(value);
+};
+
+const categoryColor = (color: string | null, idx: number) =>
+  color && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color)
+    ? color
+    : CHART_COLORS[idx % CHART_COLORS.length];
+
+function InsightItem({ insight }: { insight: TReportInsight }) {
+  const style = insightStyles[insight.type] ?? insightStyles.neutral;
+  const Icon = style.icon;
+
+  return (
+    <div className="flex gap-3 p-3 rounded-lg border bg-white/70">
+      <div className={`p-2 rounded-full shrink-0 ${style.color}`}>
+        <Icon size={16} />
+      </div>
+      <div>
+        <p className="text-sm font-semibold leading-relaxed">{insight.title}</p>
+        <p className="text-xs leading-relaxed">{insight.description}</p>
+      </div>
+    </div>
+  );
+}
+
+export default function PageClient() {
+  const { data, isLoading, filter } = useReport();
+  const {
+    data: insights = [],
+    isLoading: isInsightsLoading,
+  } = useReportInsight(filter);
+
+  const periods: Period[] = ["day", "week", "month", "year"];
+  const years = Array.from(
+    new Set([
+      ...Array.from({ length: 12 }, (_, i) => new Date().getFullYear() + 1 - i),
+      filter.year,
+    ]),
+  ).sort((a, b) => b - a);
+
+  const anchor = resolveBaseDate(filter);
+  const reportRange = getReportRange(filter);
+  const weekEnd = new Date(reportRange.start);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  const rangeLabel =
+    filter.period === "day"
+      ? dateFormatter.format(anchor)
+      : filter.period === "week"
+        ? `${dateFormatter.format(reportRange.start)} – ${dateFormatter.format(weekEnd)}`
+        : filter.period === "month"
+          ? anchor.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+          : String(anchor.getFullYear());
+
+  const totalExpenses = data?.totalExpense ?? 0;
+  const totalIncome = data?.totalIncome ?? 0;
+  const savingsRate = data?.overallSavingsRate ?? 0;
+  const categories = data?.categories ?? [];
 
   return (
     <div className="w-full mx-auto space-y-6">
@@ -97,25 +120,66 @@ export default function PageClient() {
           <p className="text-gray-600 mt-1">Analyze your spending patterns over time</p>
         </div>
 
-        {/* Time Range Selector */}
+        {/* Period & date selectors */}
+        <div className="flex flex-wrap items-center gap-3">
+          <Tabs
+            value={filter.period}
+            onValueChange={(val) => filter.setPeriod(val as Period)}
+            className="w-fit"
+          >
+            <TabsList className="bg-gray-100 p-1 rounded-lg">
+              {periods.map((period) => (
+                <TabsTrigger
+                  key={period}
+                  value={period}
+                  className="capitalize px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                >
+                  {period}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
 
-        <Tabs
-          value={filter.period}
-          onValueChange={(val) => filter.setPeriod(val as Period)}
-          className="w-fit"
-        >
-          <TabsList className="bg-gray-100 p-1 rounded-lg">
-            {periods.map((range) => (
-              <TabsTrigger
-                key={range}
-                value={range}
-                className="capitalize px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm"
-              >
-                {range}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+          {(filter.period === "day" || filter.period === "week") && (
+            <div className="flex items-center gap-2">
+              {filter.period === "week" && (
+                <span className="text-xs text-gray-500">7 days ending</span>
+              )}
+              <input
+                type="date"
+                aria-label="Select date"
+                value={filter.date}
+                onChange={(e) => filter.setDate(e.target.value)}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+
+          {filter.period === "month" && (
+            <input
+              type="month"
+              aria-label="Select month"
+              value={filter.month}
+              onChange={(e) => filter.setMonth(e.target.value)}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          )}
+
+          {filter.period === "year" && (
+            <select
+              aria-label="Select year"
+              value={filter.year}
+              onChange={(e) => filter.setYear(Number(e.target.value))}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {years.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -127,7 +191,11 @@ export default function PageClient() {
             </div>
             <span className="text-sm text-gray-600">Total Expenses</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{formatIDR(totalExpenses)}</p>
+          {isLoading ? (
+            <Skeleton className="h-8 w-32" />
+          ) : (
+            <p className="text-2xl font-bold text-gray-900">{formatIDR(totalExpenses)}</p>
+          )}
         </div>
 
         <div className="bg-white rounded-xl p-6 border border-gray-200">
@@ -137,7 +205,11 @@ export default function PageClient() {
             </div>
             <span className="text-sm text-gray-600">Total Income</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{formatIDR(totalIncome)}</p>
+          {isLoading ? (
+            <Skeleton className="h-8 w-32" />
+          ) : (
+            <p className="text-2xl font-bold text-gray-900">{formatIDR(totalIncome)}</p>
+          )}
         </div>
 
         <div className="bg-white rounded-xl p-6 border border-gray-200">
@@ -147,33 +219,41 @@ export default function PageClient() {
             </div>
             <span className="text-sm text-gray-600">Savings Rate</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{(savingsRate * 100).toFixed(2)}%</p>
+          {isLoading ? (
+            <Skeleton className="h-8 w-24" />
+          ) : (
+            <p className="text-2xl font-bold text-gray-900">
+              {(savingsRate * 100).toFixed(2)}%
+            </p>
+          )}
         </div>
       </div>
 
       {/* Spending Trend Chart */}
       <div className="bg-white rounded-xl p-6 border border-gray-200">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          {filter.period === "day" && "Today's Activity"}
-          {filter.period === "week" && "This Week's Activity"}
-          {filter.period === "month" && "This Month's Activity"}
-          {filter.period === "year" && "This Year's Activity"}
+          {periodTitles[filter.period]} · {rangeLabel}
         </h2>
         <ResponsiveContainer width="100%" height={350}>
           <LineChart data={data?.graph ?? []}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey={'period'} />
-            <YAxis />
-            <Tooltip />
+            <XAxis dataKey="period" />
+            <YAxis tickFormatter={compactNumber} />
+            <Tooltip
+              formatter={(value) => formatIDR(Number(value))}
+              contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb" }}
+            />
             <Legend />
             <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={2} name="Expenses" />
             <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} name="Income" />
-            {data?.graphMeta.goal.map(g => <Line
-              key={g.key}
-              dataKey={g.key}
-              // stroke={colors[idx % colors.length]}
-              name={`[Savings] ${g.title}`}
-            />)}
+            {data?.graphMeta.goal.map((g) => (
+              <Line
+                key={g.key}
+                type="monotone"
+                dataKey={g.key}
+                name={`[Savings] ${g.title}`}
+              />
+            ))}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -182,52 +262,95 @@ export default function PageClient() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl p-6 border border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Expenses by Category</h2>
-          <div className="space-y-4">
-            {categoryBreakdown[filter.period].map((item, idx) => (
-              <div key={idx}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-700">{item.category}</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    ${item.amount.toLocaleString()} ({item.percentage}%)
-                  </span>
+          {isLoading ? (
+            <div className="space-y-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-8 w-full" />
+              ))}
+            </div>
+          ) : categories.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              No expenses recorded for this {filter.period}.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {categories.map((item, idx) => (
+                <div key={item.id}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-700">{item.category}</span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {formatIDR(item.amount)} ({item.percentage}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="h-2 rounded-full transition-all"
+                      style={{
+                        width: `${item.percentage}%`,
+                        backgroundColor: categoryColor(item.color, idx),
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full transition-all"
-                    style={{ width: `${item.percentage}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-xl p-6 border border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Category Comparison</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={categoryBreakdown[filter.period]}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="category" angle={-45} textAnchor="end" height={100} />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="amount" fill="#3b82f6" />
-            </BarChart>
-          </ResponsiveContainer>
+          {isLoading ? (
+            <Skeleton className="h-[300px] w-full" />
+          ) : categories.length === 0 ? (
+            <div className="h-[300px] flex items-center justify-center text-sm text-gray-500">
+              No expenses recorded for this {filter.period}.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={categories}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="category" angle={-45} textAnchor="end" height={100} />
+                <YAxis tickFormatter={compactNumber} />
+                <Tooltip
+                  formatter={(value) => formatIDR(Number(value))}
+                  contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb" }}
+                />
+                <Bar dataKey="amount" name="Expenses" radius={[4, 4, 0, 0]}>
+                  {categories.map((item, idx) => (
+                    <Cell
+                      key={item.id}
+                      fill={categoryColor(item.color, idx)}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
       {/* Insights */}
       <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">💡 Insights</h2>
-        <div className="space-y-2 text-gray-700">
-          <p>• Your {filter.period}ly savings rate is {savingsRate}%</p>
-          <p>• Top spending category: {categoryBreakdown[filter.period][0].category} (${categoryBreakdown[filter.period][0].amount.toLocaleString()})</p>
-          {netSavings > 0 ? (
-            <p>• You saved ${netSavings.toLocaleString()} this {filter.period}! Keep it up! 🎉</p>
-          ) : (
-            <p>• Consider reducing expenses to build your savings</p>
-          )}
-        </div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">💡 Insights</h2>
+        <p className="text-xs text-gray-500 mb-3">
+          Based on {rangeLabel} income, expenses and categories, compared with
+          the previous {filter.period}.
+        </p>
+        {isInsightsLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : insights.length === 0 ? (
+          <p className="text-sm text-gray-600">No insights available yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {insights.map((insight, idx) => (
+              <InsightItem key={`${insight.title}-${idx}`} insight={insight} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

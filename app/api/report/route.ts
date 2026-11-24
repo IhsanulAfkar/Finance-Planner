@@ -1,131 +1,45 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/apiAuth"
-
-function getDateRange(range: string) {
-  const now = new Date()
-  const start = new Date()
-
-  switch (range) {
-    case "day":
-      start.setHours(0, 0, 0, 0)
-      break
-    case "week": {
-      const day = start.getDay()
-      const diff = start.getDate() - day + (day === 0 ? -6 : 1)
-      start.setDate(diff)
-      start.setHours(0, 0, 0, 0)
-      break
-    }
-    case "month":
-      start.setDate(1)
-      start.setHours(0, 0, 0, 0)
-      break
-    case "year":
-      start.setMonth(0, 1)
-      start.setHours(0, 0, 0, 0)
-      break
-    default:
-      throw new Error("Invalid range")
-  }
-
-  return { start, end: now }
-}
-
-function formatPeriod(date: Date, range: string) {
-  switch (range) {
-    case "day":
-      return date.getHours().toString().padStart(2, "0")
-
-    case "week": {
-      const dayName = date.toLocaleDateString("en-US", { weekday: "long" })
-      const dayNumber = date.getDate()
-      return `${dayNumber}-${dayName}` // 15-Monday
-    }
-
-    case "month":
-      return date.getDate().toString() // unchanged (1–31)
-
-    case "year": {
-      const monthName = date.toLocaleDateString("en-US", { month: "long" })
-      const year = date.getFullYear()
-      return `${year}-${monthName}` // 2025-December
-    }
-
-    default:
-      return ""
-  }
-}
-
-function generatePeriods(range: string) {
-  const now = new Date()
-
-  switch (range) {
-    case "day":
-      return Array.from({ length: 24 }, (_, i) =>
-        i.toString().padStart(2, "0")
-      )
-
-    case "week": {
-      const start = new Date(now)
-      const day = start.getDay()
-      const diff = start.getDate() - day + (day === 0 ? -6 : 1)
-      start.setDate(diff)
-
-      return Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(start)
-        d.setDate(start.getDate() + i)
-
-        const dayName = d.toLocaleDateString("en-US", { weekday: "long" })
-        const dayNumber = d.getDate()
-
-        return `${dayNumber}-${dayName}`
-      })
-    }
-
-    case "month": {
-      const year = now.getFullYear()
-      const month = now.getMonth()
-      const days = new Date(year, month + 1, 0).getDate()
-
-      return Array.from({ length: days }, (_, i) =>
-        (i + 1).toString()
-      )
-    }
-
-    case "year": {
-      const year = now.getFullYear()
-
-      return Array.from({ length: 12 }, (_, i) => {
-        const d = new Date(year, i, 1)
-        const monthName = d.toLocaleDateString("en-US", { month: "long" })
-        return `${year}-${monthName}`
-      })
-    }
-
-    default:
-      return []
-  }
-}
+import {
+  formatPeriod,
+  generatePeriods,
+  getReportRange,
+  type ReportPeriod,
+  type ReportSelection,
+} from "@/lib/reportRange"
 
 export const GET = withAuth(async (req, auth) => {
   const { searchParams } = new URL(req.url)
-  const range = searchParams.get("period") || "month"
+  const requestedPeriod = searchParams.get("period") as ReportPeriod | null
+  const period: ReportPeriod = ["day", "week", "month", "year"].includes(
+    requestedPeriod as ReportPeriod
+  )
+    ? (requestedPeriod as ReportPeriod)
+    : "month"
 
-  const { start, end } = getDateRange(range)
+  const selection: ReportSelection = {
+    period,
+    date: searchParams.get("date"),
+    month: searchParams.get("month"),
+    year: Number(searchParams.get("year")) || undefined,
+  }
+
+  const { start, end } = getReportRange(selection)
 
   const transactions = await prisma.transaction.findMany({
     where: {
       user_id: auth.user.id,
       date: {
         gte: start,
-        lte: end,
+        lt: end,
       },
     },
     select: {
       amount: true,
       type: true,
       date: true,
+      category_id: true,
     },
   })
 
@@ -136,11 +50,12 @@ export const GET = withAuth(async (req, auth) => {
     string,
     { income: number; expense: number }
   >()
+  const categoryTotals = new Map<number | null, number>()
 
   for (const t of transactions) {
-    const period = formatPeriod(new Date(t.date), range)
+    const periodLabel = formatPeriod(new Date(t.date), period)
 
-    const prev = map.get(period) || { income: 0, expense: 0 }
+    const prev = map.get(periodLabel) || { income: 0, expense: 0 }
 
     if (t.type === "INCOME") {
       totalIncome += t.amount
@@ -148,13 +63,45 @@ export const GET = withAuth(async (req, auth) => {
     } else {
       totalExpense += t.amount
       prev.expense += t.amount
+      categoryTotals.set(
+        t.category_id,
+        (categoryTotals.get(t.category_id) || 0) + t.amount
+      )
     }
 
-    map.set(period, prev)
+    map.set(periodLabel, prev)
   }
 
+  // Expense breakdown by category for the selected period
+  const categoryIds = [...categoryTotals.keys()].filter(
+    (id): id is number => id !== null
+  )
+  const categories = categoryIds.length
+    ? await prisma.transactionCategory.findMany({
+        where: {
+          user_id: auth.user.id,
+          id: { in: categoryIds },
+        },
+        select: { id: true, name: true, color: true },
+      })
+    : []
+  const categoryNames = new Map(categories.map((c) => [c.id, c]))
+  const categoryBreakdown = [...categoryTotals.entries()]
+    .map(([id, amount]) => ({
+      id: id ?? 0,
+      category: id === null
+        ? "Uncategorized"
+        : categoryNames.get(id)?.name ?? "Uncategorized",
+      color: id === null ? null : categoryNames.get(id)?.color ?? null,
+      amount,
+      percentage: totalExpense > 0
+        ? Number(((amount / totalExpense) * 100).toFixed(1))
+        : 0,
+    }))
+    .sort((a, b) => b.amount - a.amount)
+
   // 🔥 fill missing periods
-  const periods = generatePeriods(range)
+  const periods = generatePeriods(selection)
   const goals = await prisma.savingsGoal.findMany({
     where: { user_id: auth.user.id },
     select: {
@@ -176,7 +123,7 @@ export const GET = withAuth(async (req, auth) => {
       },
       date: {
         gte: start,
-        lte: end,
+        lt: end,
       },
     },
     select: {
@@ -195,10 +142,10 @@ export const GET = withAuth(async (req, auth) => {
   }
 
   for (const c of contributions) {
-    const period = formatPeriod(new Date(c.date), range)
+    const periodLabel = formatPeriod(new Date(c.date), period)
 
     const map = goalPeriodMap.get(c.goal_id)!
-    map.set(period, (map.get(period) || 0) + c.amount)
+    map.set(periodLabel, (map.get(periodLabel) || 0) + c.amount)
   }
   const goalMap = new Map<number, number>()
 
@@ -283,7 +230,8 @@ export const GET = withAuth(async (req, auth) => {
       graph,
       graphMeta: {
         goal: goalsMeta
-      }
+      },
+      categories: categoryBreakdown,
     }
   })
 })
